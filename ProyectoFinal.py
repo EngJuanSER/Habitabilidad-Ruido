@@ -25,7 +25,7 @@ class Nodo:
     def position(self):
         piso = int(self.name[1])
         local = int(self.name[3:])
-        return piso, local, 0
+        return local, 0, piso
 
     def calcular_transmision_ruido(self, vecino):
         atenuacion_pared = 10 ** (-self.pared / 10)
@@ -133,7 +133,7 @@ class MainWindow(QMainWindow):
     def create_test_case(self):
         self.habitaciones = {}
         num_pisos = 5
-        locales_por_piso = [6, 8, 7, 10, 5]  # Ejemplo: cantidad de locales por piso
+        locales_por_piso = [10, 8, 7, 6, 5]  # Asegurando que los pisos superiores no tengan más locales que los inferiores
 
         for piso in range(num_pisos):
             for local in range(locales_por_piso[piso]):
@@ -164,45 +164,56 @@ class MainWindow(QMainWindow):
         results_window.exec_()
 
     def show_graph(self):
-        # Crear la figura y el eje 3D
-        fig = Figure(figsize=(8, 6))
-        ax = fig.add_subplot(111, projection='3d')
-
-        for name, habitacion in self.habitaciones.items():
-            vecinos = [self.habitaciones[vecino] for vecino in self.G.neighbors(name)]
-            x, y, z = habitacion.position()
-            color = habitacion.calcular_color(vecinos)
-
-            # Representar la habitación como una esfera separada
-            u = np.linspace(0, 2 * np.pi, 30)
-            v = np.linspace(0, np.pi, 30)
-            x_sphere = 0.5 * np.outer(np.cos(u), np.sin(v)) + x
-            y_sphere = 0.5 * np.outer(np.sin(u), np.sin(v)) + y
-            z_sphere = 0.5 * np.outer(np.ones(np.size(u)), np.cos(v)) + z
-
-            # Dibujar la esfera
-            ax.plot_surface(x_sphere, y_sphere, z_sphere, color=color, rstride=1, cstride=1, alpha=0.6, edgecolors='k')
-
-            # Etiquetas
-            ax.text(x, y, z + 1.2, name, fontsize=8, color='black')
-
-        # Configuración del gráfico
-        ax.set_title("Edificio - Niveles de Ruido")
-        ax.set_xlabel("Local (X)")
-        ax.set_ylabel("Local (Y)")
-        ax.set_zlabel("Piso (Z)")
-
-        # Mostrar el gráfico en una ventana
+        # Crear una nueva ventana para el gráfico
         graph_window = QDialog(self)
-        graph_window.setWindowTitle("Gráfico de Niveles de Ruido")
+        graph_window.setWindowTitle("Gráfico 3D del Edificio")
         graph_window.resize(800, 600)
 
         layout = QVBoxLayout(graph_window)
+
+        # Crear figura y ejes
+        fig = Figure(figsize=(6, 6))
+        ax = fig.add_subplot(111, projection='3d')
+
+        # Obtener posiciones de los nodos
+        pos = {name: habitacion.position() for name, habitacion in self.habitaciones.items()}
+
+        # Dibujar nodos
+        colors = [habitacion.calcular_color([self.habitaciones[vecino] for vecino in self.G.neighbors(name)])
+                  for name, habitacion in self.habitaciones.items()]
+        for name, position in pos.items():
+            ax.scatter(*position, color=colors.pop(0), s=100, label=name)
+
+        # Dibujar aristas
+        for edge in self.G.edges():
+            ax.plot([pos[edge[0]][0], pos[edge[1]][0]],
+                    [pos[edge[0]][1], pos[edge[1]][1]],
+                    [pos[edge[0]][2], pos[edge[1]][2]], color='gray')
+
+        # Ajustes de la gráfica
+        ax.set_xlabel('Local')
+        ax.set_ylabel('Posición')
+        ax.set_zlabel('Piso')
+        ax.set_title('Estructura del Edificio')
+
+        # Mostrar etiquetas al pasar el mouse
+        def on_move(event):
+            if event.inaxes == ax:
+                for label in ax.texts:
+                    label.set_visible(False)
+                for name, position in pos.items():
+                    if (abs(event.xdata - position[0]) < 0.5 and
+                            abs(event.ydata - position[1]) < 0.5 and
+                            abs(event.zdata - position[2]) < 0.5):
+                        ax.text(position[0], position[1], position[2], name, color='black', fontsize=10, visible=True)
+                fig.canvas.draw_idle()
+
+        fig.canvas.mpl_connect('motion_notify_event', on_move)
+
+        # Mostrar la gráfica
         canvas = FigureCanvas(fig)
         layout.addWidget(canvas)
-
         graph_window.exec_()
-
 
     def fix_specific_node(self):
         # Crear ventana para seleccionar un nodo
@@ -272,7 +283,6 @@ class MainWindow(QMainWindow):
         # Actualizar el gráfico y los resultados
         self.show_results()
         self.show_graph()
-
 
 
 # Main
