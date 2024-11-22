@@ -1,291 +1,502 @@
 import sys
 import math
-import random as rd
-import numpy as np
-from matplotlib.figure import Figure
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QVBoxLayout, QPushButton, QWidget, QScrollArea,
-    QTextEdit, QLabel, QDialog
+    QApplication, QMainWindow, QLabel, QVBoxLayout, QPushButton, QWidget,
+    QComboBox, QScrollArea, QMessageBox, QHBoxLayout, QDesktopWidget
 )
+from PyQt5.QtCore import Qt
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+import matplotlib.pyplot as plt
 import networkx as nx
+from matplotlib.lines import Line2D  # Añadido para solucionar el error NameError
 
-
-# Clase Nodo
 class Nodo:
-    def __init__(self, name, pared, ventana, puerta, ruido, frecuencia):
+    def __init__(self, name, tipo, pared, ventana, puerta, ruido, frecuencia, position, piso, es_fuente=False):
         self.name = name
+        self.tipo = tipo
         self.pared = pared
         self.ventana = ventana
         self.puerta = puerta
         self.ruido = ruido
         self.frecuencia = frecuencia
+        self.sensores = []
+        self.conexiones = []
+        self.position = position  # (x, y, z)
+        self.piso = piso
+        self.es_fuente = es_fuente
 
-    def position(self):
-        piso = int(self.name[1])
-        local = int(self.name[3:])
-        return local, 0, piso
+    def agregar_sensor(self, sensor):
+        self.sensores.append(sensor)
 
-    def calcular_transmision_ruido(self, vecino):
-        atenuacion_pared = 10 ** (-self.pared / 10)
-        atenuacion_ventana = 10 ** (-self.ventana / 10)
-        atenuacion_puerta = 10 ** (-self.puerta / 10)
+    def conectar(self, nodo):
+        if nodo not in self.conexiones:
+            self.conexiones.append(nodo)
+            nodo.conectar_bidireccional(self)
 
-        distancia = math.sqrt(sum([(a - b) ** 2 for a, b in zip(self.position(), vecino.position())]))
-        atenuacion_distancia = 10 ** (-distancia / 20)
+    def conectar_bidireccional(self, nodo):
+        if nodo not in self.conexiones:
+            self.conexiones.append(nodo)
 
-        transmision_total = atenuacion_pared * atenuacion_ventana * atenuacion_puerta * atenuacion_distancia
-        return -10 * math.log10(transmision_total + 1e-9)
+    def medir_ruido(self):
+        ruido_propio = self.ruido if self.es_fuente else 0
+        ruido_propagado = 0
+        for nodo in self.conexiones:
+            distancia = self.calcular_distancia(nodo)
+            if distancia == 0:
+                continue
+            atenuacion = math.log(distancia + 1)  # Atenuación logarítmica
+            if self.piso != nodo.piso:
+                atenuacion *= 1.5  # Mayor atenuación entre pisos
+            ruido_propagado += nodo.ruido / atenuacion
+        absorcion = 0.8 if self.pared else 1.0
+        ruido_total = ruido_propio + (ruido_propagado * absorcion)
+        return ruido_total
 
-    def calcular_nivel_ruido(self, vecinos):
-        niveles = [self.ruido]
-        for vecino in vecinos:
-            niveles.append(self.calcular_transmision_ruido(vecino) + vecino.ruido)
-        return 10 * math.log10(sum(10 ** (nivel / 10) for nivel in niveles))
+    def calcular_distancia(self, otro_nodo):
+        x1, y1, z1 = self.position
+        x2, y2, z2 = otro_nodo.position
+        return math.sqrt((x2 - x1)**2 + (y2 - y1)**2 + (z2 - z1)**2)
 
-    def calcular_color(self, vecinos):
-        nivel_ruido = self.calcular_nivel_ruido(vecinos)
-        if nivel_ruido > 80:
-            return 'red'
-        elif nivel_ruido > 60:
-            return 'orange'
-        elif nivel_ruido > 40:
-            return 'yellow'
-        else:
-            return 'green'
+    def get_limite_ruido(self):
+        limites = {
+            "aula": {"limite_adecuado": 55, "limite_cercano": 60, "limite_excedido": 65},
+            "pasillo": {"limite_adecuado": 45, "limite_cercano": 50, "limite_excedido": 55},
+            "biblioteca": {"limite_adecuado": 35, "limite_cercano": 40, "limite_excedido": 45},
+            "auditorio": {"limite_adecuado": 60, "limite_cercano": 65, "limite_excedido": 70},
+            "cafetería": {"limite_adecuado": 60, "limite_cercano": 65, "limite_excedido": 70},
+            "laboratorio": {"limite_adecuado": 50, "limite_cercano": 55, "limite_excedido": 60},
+            "oficina": {"limite_adecuado": 50, "limite_cercano": 55, "limite_excedido": 60},
+            "reuniones": {"limite_adecuado": 50, "limite_cercano": 55, "limite_excedido": 60},
+        }
+        return limites.get(self.tipo, {"limite_adecuado": 50, "limite_cercano": 55, "limite_excedido": 60})
 
+class Sensor:
+    def __init__(self, ubicacion, ruido_fijo=None):
+        self.ubicacion = ubicacion
+        self.ruido_fijo = ruido_fijo
 
-# Clase para la ventana de resultados
-class ResultsWindow(QDialog):
-    def __init__(self, habitaciones, grafo):
+    def medir(self):
+        return self.ruido_fijo if self.ruido_fijo is not None else 0
+
+class ReporteWindow(QWidget):
+    def __init__(self, datos_reporte):
         super().__init__()
-        self.setWindowTitle("Resultados Detallados")
-        self.resize(800, 600)
+        self.setWindowTitle("Reporte de Ruido")
+        self.setGeometry(150, 150, 400, 500)
 
-        # Crear área scrolleable
-        scroll_area = QScrollArea(self)
-        scroll_area.setWidgetResizable(True)
-        layout = QVBoxLayout(self)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        contenido = QWidget()
+        layout = QVBoxLayout()
+
+        for name, nivel, estado, recomendacion in datos_reporte:
+            if estado == "Excede":
+                simbolo = "❌"
+                color = "red"
+            elif estado == "Cerca":
+                simbolo = "⚠️"
+                color = "orange"
+            else:
+                simbolo = "✅"
+                color = "green"
+            texto = f"{simbolo} {name}: {nivel:.2f} dB - {recomendacion}"
+            label = QLabel(texto)
+            label.setWordWrap(True)
+            label.setStyleSheet(f"color: {color};")
+            layout.addWidget(label)
+
+        contenido.setLayout(layout)
+        scroll.setWidget(contenido)
+
+        main_layout = QVBoxLayout()
+        main_layout.addWidget(scroll)
+        self.setLayout(main_layout)
+
+class Grafo3DWindow(QWidget):
+    def __init__(self, habitaciones, posiciones_fijas):
+        super().__init__()
+        self.setWindowTitle("Grafo 3D")
+        self.setGeometry(150, 150, 800, 600)
+        layout = QVBoxLayout()
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
+
+        G = nx.Graph()
+        for name, nodo in habitaciones.items():
+            G.add_node(name, tipo=nodo.tipo, ruido=nodo.medir_ruido())
+
+        # Conectar todos los nodos dentro del mismo piso
+        pisos = {}
+        for name, nodo in habitaciones.items():
+            pisos.setdefault(nodo.piso, []).append(nodo)
+
+        for piso, nodos in pisos.items():
+            for i in range(len(nodos)):
+                for j in range(i + 1, len(nodos)):
+                    G.add_edge(nodos[i].name, nodos[j].name)
+
+        # Conectar entre pisos adyacentes
+        for piso, nodos in pisos.items():
+            if piso < max(pisos.keys()):
+                pisos_siguiente = pisos.get(piso + 1, [])
+                for nodo in nodos:
+                    for otro_nodo in pisos_siguiente:
+                        distancia_total = nodo.calcular_distancia(otro_nodo)
+                        if distancia_total <= 7:  # Umbral ajustado
+                            G.add_edge(nodo.name, otro_nodo.name)
+
+        pos = posiciones_fijas  # Usar posiciones fijas
+        nx.set_node_attributes(G, pos, 'pos')
+
+        # Dibujar nodos
+        for name, nodo in habitaciones.items():
+            niveles = nodo.get_limite_ruido()
+            nivel_ruido = nodo.medir_ruido()
+            if nivel_ruido > niveles['limite_excedido']:
+                color = 'red'
+            elif nivel_ruido > niveles['limite_cercano']:
+                color = 'yellow'
+            else:
+                color = 'green'
+            p = pos[name]
+            ax.scatter(p[0], p[1], p[2], color=color, s=100)
+            ax.text(p[0], p[1], p[2], name, fontsize=9)
+
+        # Dibujar aristas con atenuación logarítmica
+        for edge in G.edges():
+            if edge[0] in pos and edge[1] in pos:
+                p1 = pos[edge[0]]
+                p2 = pos[edge[1]]
+                distancia = math.sqrt(
+                    (p2[0] - p1[0])**2 +
+                    (p2[1] - p1[1])**2 +
+                    (p2[2] - p1[2])**2
+                )
+                atenuacion = math.log(distancia + 1)  # Evitar log(0)
+                ax.plot(
+                    [p1[0], p2[0]],
+                    [p1[1], p2[1]],
+                    [p1[2], p2[2]],
+                    color='gray',
+                    linestyle='--',
+                    linewidth=0.5 / atenuacion  # Atenuar según distancia
+                )
+
+        # Configurar límites de los ejes basados en el primer piso
+        limite_piso1 = self.obtener_limites_piso1(habitaciones)
+        ax.set_xlim([-limite_piso1['x'], limite_piso1['x']])
+        ax.set_ylim([-limite_piso1['y'], limite_piso1['y']])
+        ax.set_zlim([0, max(piso for piso in pisos.keys()) * 3 + 3])  # Ajustar según pisos
+
+        # Añadir leyenda
+        legend_elements = [
+            Line2D([0], [0], marker='o', color='w', label='Adecuado', markerfacecolor='green', markersize=10),
+            Line2D([0], [0], marker='o', color='w', label='Cerca del límite', markerfacecolor='yellow', markersize=10),
+            Line2D([0], [0], marker='o', color='w', label='Excede límite', markerfacecolor='red', markersize=10)
+        ]
+        ax.legend(handles=legend_elements, loc='upper right')
+
+        self.canvas = FigureCanvas(fig)
+        layout.addWidget(self.canvas)
+        self.setLayout(layout)
+        self.canvas.draw()
+
+    def obtener_limites_piso1(self, habitaciones):
+        nodos_piso1 = [nodo for nodo in habitaciones.values() if nodo.piso == 1]
+        max_x = max(abs(nodo.position[0]) for nodo in nodos_piso1)
+        max_y = max(abs(nodo.position[1]) for nodo in nodos_piso1)
+        return {'x': max_x + 2, 'y': max_y + 2}  # Margen adicional
+
+class ArreglarNodoWindow(QWidget):
+    def __init__(self, habitaciones, actualizar_func):
+        super().__init__()
+        self.setWindowTitle("Arreglar Nodo")
+        self.setGeometry(300, 300, 300, 200)  # Tamaño reducido
+        self.habitaciones = habitaciones
+        self.actualizar_func = actualizar_func
+
+        layout = QVBoxLayout()
+
+        self.combo = QComboBox()
+        for name, nodo in habitaciones.items():
+            limites = nodo.get_limite_ruido()
+            nivel = nodo.medir_ruido()
+            if nivel > limites['limite_excedido']:
+                self.combo.addItem(name)
+        layout.addWidget(QLabel("Seleccionar nodo a arreglar:"))
+        layout.addWidget(self.combo)
+
+        self.btn_arreglar = QPushButton("Arreglar")
+        self.btn_arreglar.clicked.connect(self.arreglar)
+        layout.addWidget(self.btn_arreglar, alignment=Qt.AlignCenter)
+
         self.setLayout(layout)
 
-        text_widget = QTextEdit()
-        text_widget.setReadOnly(True)
-        scroll_area.setWidget(text_widget)
-        layout.addWidget(scroll_area)
+    def arreglar(self):
+        name = self.combo.currentText()
+        if name:
+            nodo = self.habitaciones[name]
+            limites = nodo.get_limite_ruido()
+            nodo.ruido = limites['limite_adecuado']  # Reducir el ruido al límite adecuado
+            self.actualizar_func()
+            QMessageBox.information(self, "Arreglar Nodo", f"Nodo '{name}' arreglado al límite adecuado.")
+            self.close()
 
-        # Generar resultados
-        result = ""
-        for name, habitacion in habitaciones.items():
-            vecinos = [habitaciones[vecino] for vecino in grafo.neighbors(name)]
-            ruido_actual = habitacion.calcular_nivel_ruido(vecinos)
-            result += f"🔵 Nodo {name}:\n"
-            result += f"  - Resistencia de Pared: {habitacion.pared}\n"
-            result += f"  - Resistencia de Ventana: {habitacion.ventana}\n"
-            result += f"  - Resistencia de Puerta: {habitacion.puerta}\n"
-            result += f"  - Nivel de Ruido: {ruido_actual:.2f} dB\n\n"
-
-            # Recomendaciones
-            if ruido_actual <= 60:
-                result += "✅ **Recomendación:** El nivel de ruido es adecuado. No se requieren acciones inmediatas.\n\n"
-            elif 60 < ruido_actual <= 80:
-                result += "⚠️ **Recomendación:** Nivel moderado. Considere paneles acústicos o ventanas de doble acristalamiento.\n\n"
-            else:
-                result += "❌ **Recomendación:** Nivel alto. Aísle puertas y ventanas, use materiales insonorizantes.\n\n"
-
-        text_widget.setText(result)
-
-
-# Clase para manejar la ventana principal y los gráficos
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Análisis de Niveles de Ruido")
-        self.resize(800, 600)
-
+        self.setWindowTitle("Simulación de Ruido")
+        self.setGeometry(100, 100, 600, 400)  # Tamaño reducido
+        self.centrar_ventana()
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
 
-        self.layout = QVBoxLayout()
-        self.central_widget.setLayout(self.layout)
-
-        # Botones
-        self.button_results = QPushButton("Mostrar Resultados")
-        self.button_results.clicked.connect(self.show_results)
-        self.layout.addWidget(self.button_results)
-
-        self.button_graph = QPushButton("Mostrar Gráfico")
-        self.button_graph.clicked.connect(self.show_graph)
-        self.layout.addWidget(self.button_graph)
-
-        self.button_fix_node = QPushButton("Arreglar Nodo Específico")
-        self.button_fix_node.clicked.connect(self.fix_specific_node)
-        self.layout.addWidget(self.button_fix_node)
-
-        self.button_exit = QPushButton("Salir")
-        self.button_exit.clicked.connect(self.close)
-        self.layout.addWidget(self.button_exit)
-
-        # Crear el grafo y las habitaciones
-        self.G = nx.Graph()
-        self.create_test_case()
-
-    def create_test_case(self):
         self.habitaciones = {}
-        num_pisos = 5
-        locales_por_piso = [10, 8, 7, 6, 5]  # Asegurando que los pisos superiores no tengan más locales que los inferiores
+        self.datos_ruido = []
+        self.reporte_generado = False
+        self.posiciones_fijas = {}
 
-        for piso in range(num_pisos):
-            for local in range(locales_por_piso[piso]):
-                name = f"P{piso + 1}L{local + 1}"
-                pared = rd.randint(10, 40)  # Resistencia de pared más variada
-                ventana = rd.uniform(2.0, 5.0)  # Ventanas con diferentes niveles
-                puerta = rd.uniform(1.0, 3.0)  # Variación en puertas
-                ruido = rd.randint(10, 50)  # Niveles iniciales ajustados a 10-50
-                frecuencia = rd.randint(10, 100)  # Frecuencia del ruido
+        self.inicializar_nodos()
+        self.conectar_nodos()
+        self.aplicar_reduccion_grafo()
 
-                habitacion = Nodo(name, pared, ventana, puerta, ruido, frecuencia)
-                self.G.add_node(name)
-                self.habitaciones[name] = habitacion
+        # Crear botones
+        layout_principal = QVBoxLayout()
+        layout_principal.setSpacing(10)  # Espaciado reducido
+        layout_principal.setContentsMargins(20, 20, 20, 20)  # Márgenes ajustados
 
-                # Conectar con otras habitaciones del mismo piso
-                if local > 0:
-                    vecino_name = f"P{piso + 1}L{local}"  # Conectar con el anterior
-                    self.G.add_edge(name, vecino_name)
+        bot_textos = ["Generar Reporte", "Mostrar Grafo 3D", "Arreglar Nodo", "Salir"]
+        botones = []
+        ancho_boton = self.obtener_ancho_boton(bot_textos)
 
-                # Conectar con pisos superiores/inferiores
-                if piso > 0:
-                    vecino_name = f"P{piso}L{rd.randint(1, locales_por_piso[piso - 1])}"
-                    self.G.add_edge(name, vecino_name)
+        # Layout para centrar los botones
+        layout_botones = QVBoxLayout()
+        layout_botones.setSpacing(10)
 
-    def show_results(self):
-        # Mostrar ventana de resultados
-        results_window = ResultsWindow(self.habitaciones, self.G)
-        results_window.exec_()
+        for texto in bot_textos:
+            btn = QPushButton(texto)
+            btn.setFixedWidth(ancho_boton)
+            botones.append(btn)
+            layout_botones.addWidget(btn, alignment=Qt.AlignCenter)
 
-    def show_graph(self):
-        # Crear una nueva ventana para el gráfico
-        graph_window = QDialog(self)
-        graph_window.setWindowTitle("Gráfico 3D del Edificio")
-        graph_window.resize(800, 600)
+        layout_principal.addLayout(layout_botones)
+        layout_principal.addStretch()
 
-        layout = QVBoxLayout(graph_window)
+        # Conectar botones
+        botones[0].clicked.connect(self.mostrar_reporte)
+        botones[1].clicked.connect(self.mostrar_grafo)
+        botones[2].clicked.connect(self.arreglar_nodo)
+        botones[3].clicked.connect(self.close)
 
-        # Crear figura y ejes
-        fig = Figure(figsize=(6, 6))
-        ax = fig.add_subplot(111, projection='3d')
+        self.central_widget.setLayout(layout_principal)
 
-        # Obtener posiciones de los nodos
-        pos = {name: habitacion.position() for name, habitacion in self.habitaciones.items()}
+    def centrar_ventana(self):
+        qr = self.frameGeometry()
+        cp = QDesktopWidget().availableGeometry().center()
+        qr.moveCenter(cp)
+        self.move(qr.topLeft())
 
-        # Dibujar nodos
-        colors = [habitacion.calcular_color([self.habitaciones[vecino] for vecino in self.G.neighbors(name)])
-                  for name, habitacion in self.habitaciones.items()]
-        for name, position in pos.items():
-            ax.scatter(*position, color=colors.pop(0), s=100, label=name)
+    def obtener_ancho_boton(self, textos):
+        fuente = self.font()
+        fm = self.fontMetrics()
+        max_ancho = max([fm.width(texto) for texto in textos]) + 40
+        return max_ancho
 
-        # Dibujar aristas
-        for edge in self.G.edges():
-            ax.plot([pos[edge[0]][0], pos[edge[1]][0]],
-                    [pos[edge[0]][1], pos[edge[1]][1]],
-                    [pos[edge[0]][2], pos[edge[1]][2]], color='gray')
+    def inicializar_nodos(self):
+        # Definir posiciones fijas para asegurar layout consistente
+        # Ampliar el edificio con más pisos y espacios
+        # Formato: (x, y, z)
+        self.habitaciones = {
+            # Piso 1
+            "Recepción": Nodo("Recepción", "oficina", True, True, True, 50, 1, (0, 0, 0), piso=1, es_fuente=True),
+            "Oficina 1": Nodo("Oficina 1", "oficina", True, True, True, 55, 1, (-4, 2, 0), piso=1),
+            "Oficina 2": Nodo("Oficina 2", "oficina", True, True, True, 60, 1, (-4, -2, 0), piso=1),
+            "Pasillo 1": Nodo("Pasillo 1", "pasillo", False, False, False, 40, 1, (-2, 0, 0), piso=1),
+            "Sala de Reuniones 1": Nodo("Sala de Reuniones 1", "reuniones", True, True, True, 52, 1, (2, 2, 0), piso=1),
+            "Sala de Reuniones 2": Nodo("Sala de Reuniones 2", "reuniones", True, True, True, 48, 1, (2, -2, 0), piso=1),
+            "Aula 1": Nodo("Aula 1", "aula", True, True, True, 58, 1, (4, 2, 0), piso=1),
+            "Aula 2": Nodo("Aula 2", "aula", True, True, True, 62, 1, (4, -2, 0), piso=1),
+            # Piso 2
+            "Laboratorio 1": Nodo("Laboratorio 1", "laboratorio", True, True, True, 45, 1, (-4, 2, 3), piso=2),
+            "Laboratorio 2": Nodo("Laboratorio 2", "laboratorio", True, True, True, 48, 1, (-4, -2, 3), piso=2),
+            "Oficina 3": Nodo("Oficina 3", "oficina", True, True, True, 50, 1, (-2, 2, 3), piso=2),
+            "Pasillo 2": Nodo("Pasillo 2", "pasillo", False, False, False, 42, 1, (-2, 0, 3), piso=2),
+            "Biblioteca": Nodo("Biblioteca", "biblioteca", True, True, True, 35, 1, (2, 2, 3), piso=2),
+            "Aula 3": Nodo("Aula 3", "aula", True, True, True, 57, 1, (4, 2, 3), piso=2),
+            "Aula 4": Nodo("Aula 4", "aula", True, True, True, 61, 1, (4, -2, 3), piso=2),
+            # Piso 3
+            "Auditorio": Nodo("Auditorio", "auditorio", True, True, True, 70, 1, (-4, 2, 6), piso=3, es_fuente=True),
+            "Cafetería": Nodo("Cafetería", "cafetería", True, True, True, 65, 1, (-4, -2, 6), piso=3),
+            "Oficina 4": Nodo("Oficina 4", "oficina", True, True, True, 55, 1, (-2, 2, 6), piso=3),
+            "Pasillo 3": Nodo("Pasillo 3", "pasillo", False, False, False, 43, 1, (-2, 0, 6), piso=3),
+            "Laboratorio 3": Nodo("Laboratorio 3", "laboratorio", True, True, True, 50, 1, (2, 2, 6), piso=3),
+            "Oficina 5": Nodo("Oficina 5", "oficina", True, True, True, 53, 1, (2, -2, 6), piso=3),
+            "Sala de Reuniones 3": Nodo("Sala de Reuniones 3", "reuniones", True, True, True, 49, 1, (0, 0, 6), piso=3),
+            "Aula 5": Nodo("Aula 5", "aula", True, True, True, 59, 1, (4, 2, 6), piso=3),
+            "Aula 6": Nodo("Aula 6", "aula", True, True, True, 63, 1, (4, -2, 6), piso=3),
+            # Piso 4
+            "Biblioteca 2": Nodo("Biblioteca 2", "biblioteca", True, True, True, 34, 1, (-4, 2, 9), piso=4),
+            "Oficina 6": Nodo("Oficina 6", "oficina", True, True, True, 54, 1, (-2, 2, 9), piso=4),
+            "Pasillo 4": Nodo("Pasillo 4", "pasillo", False, False, False, 44, 1, (-2, 0, 9), piso=4),
+            "Aula 7": Nodo("Aula 7", "aula", True, True, True, 60, 1, (4, 2, 9), piso=4),
+            "Aula 8": Nodo("Aula 8", "aula", True, True, True, 64, 1, (4, -2, 9), piso=4),
+        }
 
-        # Ajustes de la gráfica
-        ax.set_xlabel('Local')
-        ax.set_ylabel('Posición')
-        ax.set_zlabel('Piso')
-        ax.set_title('Estructura del Edificio')
+        # Agregar sensores a los nodos
+        for habitacion in self.habitaciones.values():
+            habitacion.agregar_sensor(Sensor(habitacion.name, ruido_fijo=habitacion.ruido))
 
-        # Mostrar etiquetas al pasar el mouse
-        def on_move(event):
-            if event.inaxes == ax:
-                for label in ax.texts:
-                    label.set_visible(False)
-                for name, position in pos.items():
-                    if (abs(event.xdata - position[0]) < 0.5 and
-                            abs(event.ydata - position[1]) < 0.5 and
-                            abs(event.zdata - position[2]) < 0.5):
-                        ax.text(position[0], position[1], position[2], name, color='black', fontsize=10, visible=True)
-                fig.canvas.draw_idle()
+        # Definir posiciones fijas
+        self.posiciones_fijas = {name: nodo.position for name, nodo in self.habitaciones.items()}
 
-        fig.canvas.mpl_connect('motion_notify_event', on_move)
+    def conectar_nodos(self):
+        # Conexiones Piso 1
+        self.habitaciones["Recepción"].conectar(self.habitaciones["Pasillo 1"])
+        self.habitaciones["Oficina 1"].conectar(self.habitaciones["Pasillo 1"])
+        self.habitaciones["Oficina 2"].conectar(self.habitaciones["Pasillo 1"])
+        self.habitaciones["Pasillo 1"].conectar(self.habitaciones["Sala de Reuniones 1"])
+        self.habitaciones["Pasillo 1"].conectar(self.habitaciones["Sala de Reuniones 2"])
+        self.habitaciones["Pasillo 1"].conectar(self.habitaciones["Aula 1"])
+        self.habitaciones["Pasillo 1"].conectar(self.habitaciones["Aula 2"])
 
-        # Mostrar la gráfica
-        canvas = FigureCanvas(fig)
-        layout.addWidget(canvas)
-        graph_window.exec_()
+        # Conexiones entre Piso 1 y Piso 2
+        self.habitaciones["Pasillo 1"].conectar(self.habitaciones["Pasillo 2"])
 
-    def fix_specific_node(self):
-        # Crear ventana para seleccionar un nodo
-        fix_window = QDialog(self)
-        fix_window.setWindowTitle("Arreglar Nodo")
-        fix_window.resize(400, 300)
+        # Conexiones Piso 2
+        self.habitaciones["Pasillo 2"].conectar(self.habitaciones["Laboratorio 1"])
+        self.habitaciones["Pasillo 2"].conectar(self.habitaciones["Laboratorio 2"])
+        self.habitaciones["Pasillo 2"].conectar(self.habitaciones["Oficina 3"])
+        self.habitaciones["Pasillo 2"].conectar(self.habitaciones["Biblioteca"])
+        self.habitaciones["Pasillo 2"].conectar(self.habitaciones["Aula 3"])
+        self.habitaciones["Pasillo 2"].conectar(self.habitaciones["Aula 4"])
 
-        layout = QVBoxLayout(fix_window)
-        label = QLabel("Ingrese el nombre del nodo a arreglar:")
-        layout.addWidget(label)
+        # Conexiones entre Piso 2 y Piso 3
+        self.habitaciones["Pasillo 2"].conectar(self.habitaciones["Pasillo 3"])
 
-        node_input = QTextEdit()
-        node_input.setFixedHeight(30)
-        layout.addWidget(node_input)
+        # Conexiones Piso 3
+        self.habitaciones["Pasillo 3"].conectar(self.habitaciones["Auditorio"])
+        self.habitaciones["Pasillo 3"].conectar(self.habitaciones["Cafetería"])
+        self.habitaciones["Pasillo 3"].conectar(self.habitaciones["Oficina 4"])
+        self.habitaciones["Pasillo 3"].conectar(self.habitaciones["Laboratorio 3"])
+        self.habitaciones["Pasillo 3"].conectar(self.habitaciones["Oficina 5"])
+        self.habitaciones["Pasillo 3"].conectar(self.habitaciones["Sala de Reuniones 3"])
+        self.habitaciones["Pasillo 3"].conectar(self.habitaciones["Aula 5"])
+        self.habitaciones["Pasillo 3"].conectar(self.habitaciones["Aula 6"])
 
-        def show_fix_options():
-            # Obtener el nodo
-            node_name = node_input.toPlainText().strip()
-            if node_name in self.habitaciones:
-                fix_options_window = QDialog(self)
-                fix_options_window.setWindowTitle("Opciones de Arreglo")
-                fix_options_window.resize(300, 200)
+        # Conexiones entre Piso 3 y Piso 4
+        self.habitaciones["Pasillo 3"].conectar(self.habitaciones["Pasillo 4"])
 
-                options_layout = QVBoxLayout(fix_options_window)
+        # Conexiones Piso 4
+        self.habitaciones["Pasillo 4"].conectar(self.habitaciones["Biblioteca 2"])
+        self.habitaciones["Pasillo 4"].conectar(self.habitaciones["Oficina 6"])
+        self.habitaciones["Pasillo 4"].conectar(self.habitaciones["Aula 7"])
+        self.habitaciones["Pasillo 4"].conectar(self.habitaciones["Aula 8"])
 
-                # Botón para hacer el nodo amarillo (moderar el ruido)
-                yellow_button = QPushButton("Hacer Amarillo")
-                yellow_button.clicked.connect(lambda: self.apply_fix(node_name, color="yellow"))
-                options_layout.addWidget(yellow_button)
+    def aplicar_reduccion_grafo(self):
+        # Implementar reducción del grafo directamente en el código base
+        nodos_fusionables = []
+        nombres = list(self.habitaciones.keys())
+        for i in range(len(nombres)):
+            for j in range(i + 1, len(nombres)):
+                nodo1 = self.habitaciones[nombres[i]]
+                nodo2 = self.habitaciones[nombres[j]]
+                if nodo1.tipo == nodo2.tipo and abs(nodo1.ruido - nodo2.ruido) <= 5:
+                    distancia = nodo1.calcular_distancia(nodo2)
+                    if distancia <= 2.0 and nodo1.piso == nodo2.piso:
+                        nodos_fusionables.append((nodo1, nodo2))
 
-                # Botón para hacer el nodo verde (hacerlo habitable)
-                green_button = QPushButton("Hacer Verde (Habitable)")
-                green_button.clicked.connect(lambda: self.apply_fix(node_name, color="green"))
-                options_layout.addWidget(green_button)
+        for nodo1, nodo2 in nodos_fusionables:
+            for conexion in nodo2.conexiones.copy():
+                if conexion != nodo1:
+                    nodo1.conectar(conexion)
+            nodo1.ruido = (nodo1.ruido + nodo2.ruido) / 2
+            # Eliminar conexiones bidireccionales
+            for conexion in nodo2.conexiones:
+                conexion.conexiones.remove(nodo2)
+            del self.habitaciones[nodo2.name]
+            del self.posiciones_fijas[nodo2.name]
 
-                fix_options_window.exec_()
+    def recibir_datos(self):
+        self.datos_ruido = []
+        for name, habitacion in self.habitaciones.items():
+            nivel_ruido = habitacion.medir_ruido()
+            self.datos_ruido.append((name, nivel_ruido))
+
+    def analizar_datos(self):
+        if not self.datos_ruido:
+            self.promedio_ruido = 0
+            self.max_ruido = 0
+        else:
+            self.promedio_ruido = sum(nivel for _, nivel in self.datos_ruido) / len(self.datos_ruido)
+            self.max_ruido = max(nivel for _, nivel in self.datos_ruido)
+
+    def comparar_estandares(self):
+        self.reporte = []
+        for name, nivel in self.datos_ruido:
+            espacio = self.habitaciones[name]
+            limites = espacio.get_limite_ruido()
+            if nivel > limites['limite_excedido']:
+                recomendacion = (
+                    "Implementar soluciones acústicas: Instalación de paneles acústicos en paredes y techos, "
+                    "aislamiento de fuentes de ruido externas o internas, rediseño de la distribución de actividades, "
+                    "y mejora del aislamiento en puertas y ventanas."
+                )
+                estado = "Excede"
+            elif nivel > limites['limite_cercano']:
+                recomendacion = (
+                    "Revisar medidas de mitigación: Considerar instalación de paneles acústicos o rediseño de actividades "
+                    "para reducir niveles de ruido."
+                )
+                estado = "Cerca"
             else:
-                label.setText(f"Nodo '{node_name}' no encontrado.")
+                recomendacion = "El nivel de ruido es adecuado."
+                estado = "Adecuado"
+            self.reporte.append((name, nivel, estado, recomendacion))
 
-        # Botón para mostrar las opciones de arreglo
-        fix_button = QPushButton("Mostrar Opciones de Arreglo")
-        fix_button.clicked.connect(show_fix_options)
-        layout.addWidget(fix_button)
+    def generar_reporte(self):
+        pass  # Ya se ha generado en comparar_estandares
 
-        fix_window.exec_()
+    def mostrar_reporte(self):
+        self.recibir_datos()
+        self.analizar_datos()
+        self.comparar_estandares()
+        self.generar_reporte()
+        self.reporte_generado = True
+        self.reporte_window = ReporteWindow(self.reporte)
+        self.reporte_window.show()
 
-    def apply_fix(self, node_name, color):
-        habitacion = self.habitaciones[node_name]
-        
-        # Ajustar las propiedades acústicas dependiendo de si es amarillo o verde
-        if color == "yellow":
-            habitacion.pared = 25  # Moderado
-            habitacion.ventana = 3.0
-            habitacion.puerta = 2.0
-        elif color == "green":
-            habitacion.pared = 40  # Mejorado
-            habitacion.ventana = 4.0
-            habitacion.puerta = 3.0
-            habitacion.ruido = 10  # Reducir el ruido al mínimo
+    def mostrar_grafo(self):
+        self.grafo_window = Grafo3DWindow(self.habitaciones, self.posiciones_fijas)
+        self.grafo_window.show()
 
-        # Actualizar la propagación de ruido (ajustar vecinos)
-        for vecino in self.G.neighbors(node_name):
-            vecino_habitacion = self.habitaciones[vecino]
-            if color == "green":
-                vecino_habitacion.ruido = max(10, vecino_habitacion.ruido - 15)  # Reducir ruido en los vecinos
+    def arreglar_nodo(self):
+        self.arreglar_window = ArreglarNodoWindow(self.habitaciones, self.actualizar_datos)
+        self.arreglar_window.show()
 
-        # Actualizar el gráfico y los resultados
-        self.show_results()
-        self.show_graph()
+    def actualizar_datos(self):
+        self.recibir_datos()
+        self.analizar_datos()
+        self.comparar_estandares()
+        self.generar_reporte()
+        self.reporte_generado = False
 
+        # Actualizar el grafo si está abierto
+        try:
+            if hasattr(self, 'grafo_window') and self.grafo_window.isVisible():
+                self.grafo_window.close()
+                self.mostrar_grafo()
+        except AttributeError:
+            pass
 
-# Main
+        # Actualizar el reporte si está abierto
+        try:
+            if hasattr(self, 'reporte_window') and self.reporte_window.isVisible():
+                self.reporte_window.close()
+                self.mostrar_reporte()
+        except AttributeError:
+            pass
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = MainWindow()
