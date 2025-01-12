@@ -406,7 +406,10 @@ class MainWindow(QMainWindow):
             nodo1.tipo, nodo2.tipo = nodo2.tipo, nodo1.tipo
             nodo1.ruido, nodo2.ruido = nodo2.ruido, nodo1.ruido
             nodo1.es_fuente, nodo2.es_fuente = nodo2.es_fuente, nodo1.es_fuente
-    
+
+            # Intercambiar posiciones
+            nodo1.position, nodo2.position = nodo2.position, nodo1.position
+
             # Registrar el cambio
             cambios.append((nodo1.name, nodo2.name))
     
