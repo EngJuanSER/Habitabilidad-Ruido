@@ -40,13 +40,33 @@ class Nodo:
             self.conexiones.append(nodo)
 
     def medir_ruido(self, vecinos):
-        """Calcula el ruido total considerando las conexiones con los vecinos y la distancia."""
+        """
+
+        Calcula el nivel total de ruido considerando la propagación desde nodos vecinos.
+        
+                La propagación del ruido se modela considerando:
+        - Atenuación por distancia (inversa al cuadrado)
+        - Atenuación entre pisos (50% de reducción)
+        - Efectos de elementos estructurales:
+            * Ausencia de paredes: +20% propagación
+            * Presencia de ventanas: +10% propagación
+            * Presencia de puertas: +5% propagación
+        - Absorción por paredes: 30% de reducción
+        
+        """
+        
         ruido_propio = self.ruido if self.es_fuente else 0
         ruido_propagado = 0
         for nodo in vecinos:
             distancia = self.calcular_distancia(nodo)
-            # Atenuación inversa a la distancia
+            # Factor base de atenuación por distancia
             atenuacion = 1 / (distancia ** 2)  # Atenuación inversa al cuadrado de la distancia
+            
+            # Nueva atenuación por frecuencia
+            factor_frecuencia = min(1.0, 1.0 / (nodo.frecuencia/1000))
+            atenuacion *= factor_frecuencia
+            
+            # Factores de modificación por elementos estructurales
             if self.piso != nodo.piso:
                 atenuacion *= 0.5  # Menor propagación entre pisos
             if not self.pared or not nodo.pared:
@@ -55,7 +75,34 @@ class Nodo:
                 atenuacion *= 1.1  # Mayor propagación si hay ventanas
             if self.puerta or nodo.puerta:
                 atenuacion *= 1.05  # Mayor propagación si hay puertas
+            
+            
+            # Considerar absorción del material según frecuencia
+            coef_absorcion = {
+                'pared': {'baja': 0.3, 'media': 0.5, 'alta': 0.7},
+                'ventana': {'baja': 0.1, 'media': 0.3, 'alta': 0.5},
+                'puerta': {'baja': 0.2, 'media': 0.4, 'alta': 0.6}
+            }
+            
+            # Clasificar frecuencia
+            if nodo.frecuencia < 500:
+                rango_freq = 'baja'
+            elif nodo.frecuencia < 2000:
+                rango_freq = 'media'
+            else:
+                rango_freq = 'alta'
+                
+            # Aplicar absorción específica por material y frecuencia
+            if self.pared:
+                atenuacion *= (1 - coef_absorcion['pared'][rango_freq])
+            if self.ventana:
+                atenuacion *= (1 - coef_absorcion['ventana'][rango_freq])
+            if self.puerta:
+                atenuacion *= (1 - coef_absorcion['puerta'][rango_freq])
+                
             ruido_propagado += nodo.ruido * atenuacion
+
+        # Factor de absorción por paredes
         absorcion = 0.7 if self.pared else 1.0
         ruido_total = ruido_propio + (ruido_propagado * absorcion)
         return ruido_total
@@ -134,7 +181,7 @@ class Grafo3DWindow(QWidget):
         for name, nodo in habitaciones.items():
             G.add_node(name, tipo=nodo.tipo, ruido=nodo.medir_ruido(self.obtener_vecinos(name, grafo=habitaciones)))
 
-        # Construcción de pisos y conexiones (sin cambios importantes)
+        # Construcción de pisos y conexiones 
         pisos = {}
         for name, nodo in habitaciones.items():
             pisos.setdefault(nodo.piso, []).append(nodo)
@@ -380,6 +427,27 @@ class MainWindow(QMainWindow):
         self.mostrar_grafo_3d(grafo_optimizado, modo='solución')
 
     def optimizar_habitabilidad(self, grafo):
+        """
+        Optimiza la distribución de espacios mediante recocido simulado.
+        
+        El proceso utiliza los siguientes parámetros:
+        - Temperatura inicial: 100.0 (controla probabilidad de aceptar soluciones peores)
+        - Factor de enfriamiento: 0.95 (reduce temperatura gradualmente)
+        - Iteraciones: 1000 (número de intentos de optimización)
+        
+        El algoritmo:
+        1. Selecciona dos nodos al azar (excluyendo pasillos y la recepcion)
+        2. Intercambia sus características:
+           - Tipo de espacio
+           - Nivel de ruido
+           - Condición de fuente
+           - Posición física
+        3. Evalúa la nueva configuración
+        4. Acepta el cambio si:
+           - Mejora la situación (menor puntaje)
+           - O con probabilidad basada en temperatura actual
+        """
+
     
         # Parámetros del recocido simulado
         temperatura = 100.0
@@ -389,23 +457,65 @@ class MainWindow(QMainWindow):
         # Estado inicial
         mejor_grafo = deepcopy(grafo)
         mejor_puntaje = self.calcular_habitabilidad_total(mejor_grafo)
+
+
         mejores_cambios = []
     
         actual_grafo = deepcopy(grafo)
         actual_puntaje = mejor_puntaje
         cambios_actuales = []
     
+        # Matriz de compatibilidad entre espacios
+        compatibilidad = {
+            "biblioteca": ["oficina", "reuniones"],
+            "aula": ["laboratorio", "auditorio"],
+            "cafetería": ["pasillo", "reuniones"],
+            "laboratorio": ["aula", "oficina"],
+            "oficina": ["biblioteca", "reuniones"],
+            "auditorio": ["aula", "pasillo"],
+            "reuniones": ["oficina", "biblioteca"]
+        }
+
         for i in range(iteraciones):
-            # Generar una solución vecina
             nuevo_grafo = deepcopy(actual_grafo)
             cambios = deepcopy(cambios_actuales)
-            nodos_no_pasillo = [nodo for nodo in nuevo_grafo.values() if nodo.tipo != "pasillo"]
-            nodo1, nodo2 = random.sample(nodos_no_pasillo, 2)
+
+            # Identificar nodos problemáticos
+            nodos_problematicos = [
+                nodo for nodo in nuevo_grafo.values()
+                if nodo.tipo != "pasillo" and nodo.tipo != "recepcion" and
+                nodo.medir_ruido(self.obtener_vecinos(nodo.name, nuevo_grafo)) > 
+                nodo.get_limite_ruido()['limite_cercano']
+            ]
+
+            if nodos_problematicos and random.random() < 0.7:  # 70% de probabilidad de elegir nodo problemático
+                nodo1 = random.choice(nodos_problematicos)
+                # Buscar nodo compatible para intercambio
+                candidatos = [
+                    nodo for nodo in nuevo_grafo.values()
+                    if nodo.tipo != "pasillo" and nodo.tipo != "recepcion" and
+                    nodo.tipo in compatibilidad.get(nodo1.tipo, []) and
+                    nodo != nodo1
+                ]
+                if candidatos:
+                    nodo2 = min(candidatos, 
+                            key=lambda x: x.medir_ruido(self.obtener_vecinos(x.name, nuevo_grafo)))
+                else:
+                    nodos_no_pasillo = [n for n in nuevo_grafo.values() if n.tipo != "pasillo" and n.tipo != "recepcion" and n != nodo1]
+                    nodo2 = random.choice(nodos_no_pasillo)
+            else:
+                # Selección aleatoria tradicional
+                nodos_no_pasillo = [nodo for nodo in nuevo_grafo.values() if nodo.tipo != "pasillo" and nodo.tipo != "recepcion"]
+                nodo1, nodo2 = random.sample(nodos_no_pasillo, 2)
     
             # Intercambiar actividades
             nodo1.tipo, nodo2.tipo = nodo2.tipo, nodo1.tipo
             nodo1.ruido, nodo2.ruido = nodo2.ruido, nodo1.ruido
             nodo1.es_fuente, nodo2.es_fuente = nodo2.es_fuente, nodo1.es_fuente
+
+            # Intercambiar tipos
+            nodo1.tipo, nodo2.tipo = nodo2.tipo, nodo1.tipo
+
 
             # Intercambiar posiciones
             nodo1.position, nodo2.position = nodo2.position, nodo1.position
@@ -416,22 +526,24 @@ class MainWindow(QMainWindow):
             # Calcular puntaje de la nueva solución
             nuevo_puntaje = self.calcular_habitabilidad_total(nuevo_grafo)
     
-            # Decidir si se acepta la nueva solución
+            # Ajuste del factor de aceptación basado en la temperatura actual
+            factor_temperatura = temperatura / 100.0  # Normalizar temperatura
             delta = nuevo_puntaje - actual_puntaje
-            if delta < 0 or random.random() < math.exp(-delta / temperatura):
+       
+
+            # Criterio de aceptación mejorado
+            if delta < 0 or random.random() < math.exp(-delta / (temperatura * (1 + i/iteraciones))):
                 actual_grafo = nuevo_grafo
                 actual_puntaje = nuevo_puntaje
                 cambios_actuales = cambios
-    
-                # Actualizar el mejor encontrado
+
                 if nuevo_puntaje < mejor_puntaje:
                     mejor_grafo = deepcopy(nuevo_grafo)
                     mejor_puntaje = nuevo_puntaje
                     mejores_cambios = deepcopy(cambios_actuales)
-    
-            # Enfriamiento de la temperatura
+
             temperatura *= enfriamiento
-    
+
         return mejor_grafo, mejores_cambios
 
     def calcular_habitabilidad_total(self, grafo):
@@ -501,6 +613,8 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Error", "No se pudieron generar los datos del reporte.")
             return
         
+        # Crea ventana con scroll para visualizar cada nodo y sus datos
+
         self.ventana_reporte_inicial = QWidget()
         self.ventana_reporte_inicial.setWindowTitle("Reporte de Análisis Inicial")
         self.ventana_reporte_inicial.setGeometry(100, 100, 500, 600)
@@ -512,7 +626,7 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout()
 
         layout.addWidget(QLabel("<b>Reporte de Nodos:</b>"))
-        for name, nivel, estado in datos_reporte:
+        for name, nivel, estado, recomendacion in datos_reporte:
             if estado == "Excede":
                 simbolo = "❌"
                 color = "red"
@@ -522,7 +636,7 @@ class MainWindow(QMainWindow):
             else:
                 simbolo = "✅"
                 color = "green"
-            texto = f"{simbolo} <b>{name}</b>: {nivel:.2f} dB - {estado}"
+            texto = f"{simbolo} <b>{name}</b>: {nivel:.2f} dB - {estado}<br>Recomendación: {recomendacion}"
             etiqueta = QLabel(texto)
             etiqueta.setWordWrap(True)
             etiqueta.setStyleSheet(f"color: {color};")
@@ -537,38 +651,79 @@ class MainWindow(QMainWindow):
         self.ventana_reporte_inicial.show()
 
     def generar_reporte_inicial(self, grafo):
-        """Genera el reporte de habitabilidad para el análisis inicial sin recomendaciones."""
+        """
+        Genera datos de reporte inicial (antes de la optimización).
+        Evalúa el nivel de ruido y asigna estado y recomendación.
+        """
         datos_reporte = []
         for name, nodo in grafo.items():
             vecinos = self.obtener_vecinos(name, grafo)
             nivel = nodo.medir_ruido(vecinos)
             limites = nodo.get_limite_ruido()
+            tipo_espacio = nodo.tipo.lower()
+            # Determina estado según el nivel y personaliza la recomendación
             if nivel > limites['limite_excedido']:
                 estado = "Excede"
+                recomendaciones = {
+                "aula": "Instalar paneles acústicos en paredes, considerar cortinas absorbentes y revisar el sellado de ventanas.",
+                "biblioteca": "Implementar zonas de silencio, agregar alfombras y mobiliario con materiales absorbentes.",
+                "auditorio": "Revisar el sistema de aislamiento acústico, instalar paneles difusores y verificar puertas acústicas.",
+                "cafetería": "Agregar separadores acústicos entre zonas, implementar techos absorbentes y usar mobiliario que reduzca reverberación.",
+                "laboratorio": "Instalar cabinas de aislamiento para equipos ruidosos, revisar el funcionamiento de ventilación.",
+                "oficina": "Implementar mamparas absorbentes, agregar plantas y considerar redistribución de espacios de trabajo.",
+                "reuniones": "Instalar paneles acústicos móviles, revisar sellado de puertas y ventanas.",
+                "pasillo": "Instalar materiales absorbentes en paredes y techo, considerar barreras acústicas móviles."
+            }
             elif nivel > limites['limite_cercano']:
                 estado = "Cerca"
+                recomendaciones = {
+                "aula": "Verificar el aislamiento de ventanas y puertas, considerar uso de cortinas acústicas.",
+                "biblioteca": "Reforzar políticas de silencio, agregar señalización y considerar separadores acústicos.",
+                "auditorio": "Revisar el estado de las puertas acústicas y sellos, verificar sistema de ventilación.",
+                "cafetería": "Evaluar la distribución de mesas y considerar agregar elementos absorbentes decorativos.",
+                "laboratorio": "Verificar el mantenimiento de equipos y considerar horarios de uso.",
+                "oficina": "Evaluar la distribución de espacios y agregar elementos absorbentes.",
+                "reuniones": "Verificar el sellado acústico y considerar uso de materiales absorbentes.",
+                "pasillo": "Implementar señalización de reducción de ruido y evaluar flujos de tránsito."
+            }
             else:
                 estado = "Adecuado"
-            
-            datos_reporte.append((name, nivel, estado))
+                recomendaciones = {
+                "aula": "Mantener el monitoreo regular de niveles de ruido.",
+                "biblioteca": "Continuar con las políticas actuales de control de ruido.",
+                "auditorio": "Realizar mantenimiento preventivo de sistemas acústicos.",
+                "cafetería": "Mantener la distribución actual y políticas de uso.",
+                "laboratorio": "Seguir con los protocolos actuales de operación.",
+                "oficina": "Mantener la configuración actual del espacio.",
+                "reuniones": "Conservar las prácticas actuales de uso.",
+                "pasillo": "Mantener las medidas actuales de control de ruido."
+            }
+                
+            recomendacion = recomendaciones.get(tipo_espacio, "Revisar configuración del espacio.")
+            datos_reporte.append((name, nivel, estado, recomendacion))
         
         return datos_reporte
 
     def generar_reporte_solucion(self, grafo):
-        """Genera el reporte de habitabilidad tras la solución."""
+        """
+        Genera reporte tras la optimización de habitabilidad.
+        Se basa en los mismos criterios de ruido que el reporte inicial.
+        """
         datos_reporte = []
         for name, nodo in grafo.items():
             vecinos = self.obtener_vecinos(name, grafo)
             nivel = nodo.medir_ruido(vecinos)
             limites = nodo.get_limite_ruido()
+            tipo_espacio = nodo.tipo.lower()
+
             if nivel > limites['limite_excedido']:
-                recomendacion = "Considerar instalación de paneles acústicos o aislamiento adicional."
+                recomendacion = f"Urgente: Implementar medidas de control acústico para el espacio {tipo_espacio}. Considerar redistribución adicional o refuerzo del aislamiento."
                 estado = "Excede"
             elif nivel > limites['limite_cercano']:
-                recomendacion = "Revisar fuentes de ruido y posible redistribución."
+                recomendacion = f"Precaución: Monitorear niveles de ruido en el espacio {tipo_espacio} y planificar mejoras preventivas."
                 estado = "Cerca"
             else:
-                recomendacion = "Niveles de ruido adecuados."
+                recomendacion = f"Óptimo: Mantener configuración actual del espacio {tipo_espacio} y realizar monitoreo periódico."
                 estado = "Adecuado"
             
             datos_reporte.append((name, nivel, estado, recomendacion))

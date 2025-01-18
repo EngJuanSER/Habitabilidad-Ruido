@@ -2,15 +2,15 @@
     "nodos": [
         {
             "name": "Recepción",
-            "tipo": "oficina",
-            "ruido": 35,
+            "tipo": "recepcion",
+            "ruido": 40,
             "position": [0, 0, 0],
             "piso": 1,
             "es_fuente": true,
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 500,
             "vecinos": ["Pasillo 1", "Oficina 1", "Oficina 2", "Laboratorio 1"]
         },
         {
@@ -23,33 +23,33 @@
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 200,
             "vecinos": ["Recepción", "Pasillo 1", "Sala de Reuniones 1", "Laboratorio 1"]
         },
         {
             "name": "Oficina 2",
             "tipo": "oficina",
-            "ruido": 45,
+            "ruido": 56,
             "position": [-4, -2, 0],
             "piso": 1,
             "es_fuente": false,
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 400,
             "vecinos": ["Recepción", "Pasillo 1", "Sala de Reuniones 2", "Laboratorio 2"]
         },
         {
             "name": "Pasillo 1",
             "tipo": "pasillo",
-            "ruido": 30,
+            "ruido": 35,
             "position": [-2, 0, 0],
             "piso": 1,
             "es_fuente": true,
             "pared": false,
             "ventana": false,
             "puerta": false,
-            "frecuencia": 1,
+            "frecuencia": 800,
             "vecinos": ["Recepción", "Oficina 1", "Oficina 2", "Sala de Reuniones 1", "Sala de Reuniones 2", "Pasillo 2"]
         },
         {
@@ -62,7 +62,7 @@
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 500,
             "vecinos": ["Pasillo 1", "Oficina 1", "Aula 1", "Biblioteca"]
         },
         {
@@ -75,7 +75,7 @@
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 500,
             "vecinos": ["Pasillo 1", "Oficina 2", "Aula 2", "Biblioteca"]
         },
         {
@@ -88,7 +88,7 @@
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 1000,
             "vecinos": ["Sala de Reuniones 1", "Aula 2", "Aula 3"]
         },
         {
@@ -101,20 +101,20 @@
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 1000,
             "vecinos": ["Sala de Reuniones 2", "Aula 1", "Aula 4"]
         },
         {
             "name": "Laboratorio 1",
             "tipo": "laboratorio",
-            "ruido": 35,
+            "ruido": 55,
             "position": [-4, 2, 3],
             "piso": 2,
             "es_fuente": false,
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 2000,
             "vecinos": ["Laboratorio 2", "Oficina 3", "Pasillo 2", "Recepción", "Oficina 1"]
         },
         {
@@ -127,7 +127,7 @@
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 800,
             "vecinos": ["Laboratorio 1", "Oficina 3", "Pasillo 2", "Oficina 2"]
         },
         {
@@ -140,46 +140,46 @@
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 400,
             "vecinos": ["Laboratorio 1", "Laboratorio 2", "Pasillo 2", "Biblioteca", "Recepción"]
         },
         {
             "name": "Pasillo 2",
             "tipo": "pasillo",
-            "ruido": 32,
+            "ruido": 40,
             "position": [-2, 0, 3],
             "piso": 2,
             "es_fuente": false,
             "pared": false,
             "ventana": false,
             "puerta": false,
-            "frecuencia": 1,
+            "frecuencia": 800,
             "vecinos": ["Laboratorio 1", "Laboratorio 2", "Oficina 3", "Biblioteca", "Aula 3", "Aula 4", "Pasillo 1"]
         },
         {
             "name": "Biblioteca",
             "tipo": "biblioteca",
-            "ruido": 25,
+            "ruido": 30,
             "position": [2, 2, 3],
             "piso": 2,
             "es_fuente": false,
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 500,
             "vecinos": ["Oficina 3", "Pasillo 2", "Aula 3", "Sala de Reuniones 1", "Sala de Reuniones 2"]
         },
         {
             "name": "Aula 3",
             "tipo": "aula",
-            "ruido": 43,
+            "ruido": 56,
             "position": [4, 2, 3],
             "piso": 2,
             "es_fuente": false,
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 1000,
             "vecinos": ["Biblioteca", "Pasillo 2", "Aula 4", "Aula 1"]
         },
         {
@@ -192,33 +192,33 @@
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 1000,
             "vecinos": ["Pasillo 2", "Aula 3", "Aula 2"]
         },
         {
             "name": "Auditorio",
             "tipo": "auditorio",
-            "ruido": 55,
+            "ruido": 65,
             "position": [-4, 2, 6],
             "piso": 3,
             "es_fuente": true,
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 2100,
             "vecinos": ["Cafetería", "Oficina 4", "Pasillo 3", "Laboratorio 1"]
         },
         {
             "name": "Cafetería",
             "tipo": "cafetería",
-            "ruido": 50,
+            "ruido": 58,
             "position": [-4, -2, 6],
             "piso": 3,
             "es_fuente": true,
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 1000,
             "vecinos": ["Auditorio", "Oficina 4", "Pasillo 3", "Laboratorio 2"]
         },
         {
@@ -231,7 +231,7 @@
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 300,
             "vecinos": ["Auditorio", "Cafetería", "Pasillo 3", "Laboratorio 3", "Oficina 3"]
         },
         {
@@ -244,7 +244,7 @@
             "pared": false,
             "ventana": false,
             "puerta": false,
-            "frecuencia": 1,
+            "frecuencia": 800,
             "vecinos": ["Auditorio", "Cafetería", "Oficina 4", "Laboratorio 3", "Oficina 5", "Sala de Reuniones 3", "Pasillo 2"]
         },
         {
@@ -257,7 +257,7 @@
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 2000,
             "vecinos": ["Oficina 4", "Pasillo 3", "Oficina 5", "Biblioteca"]
         },
         {
@@ -270,20 +270,20 @@
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 200,
             "vecinos": ["Pasillo 3", "Laboratorio 3", "Sala de Reuniones 3", "Biblioteca"]
         },
         {
             "name": "Sala de Reuniones 3",
             "tipo": "reuniones",
-            "ruido": 35,
+            "ruido": 43,
             "position": [0, 0, 6],
             "piso": 3,
             "es_fuente": true,
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 250,
             "vecinos": ["Pasillo 3", "Oficina 5", "Aula 5", "Pasillo 2"]
         },
         {
@@ -296,7 +296,7 @@
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 1000,
             "vecinos": ["Sala de Reuniones 3", "Aula 6", "Aula 3"]
         },
         {
@@ -309,20 +309,20 @@
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 1000,
             "vecinos": ["Sala de Reuniones 3", "Aula 5", "Aula 4", "Aula 8"]
         },
         {
             "name": "Biblioteca 2",
             "tipo": "biblioteca",
-            "ruido": 25,
+            "ruido": 32,
             "position": [-4, 2, 9],
             "piso": 4,
             "es_fuente": false,
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 500,
             "vecinos": ["Oficina 6", "Pasillo 4"]
         },
         {
@@ -335,20 +335,20 @@
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 300,
             "vecinos": ["Biblioteca 2", "Pasillo 4"]
         },
         {
             "name": "Pasillo 4",
             "tipo": "pasillo",
-            "ruido": 32,
+            "ruido": 57,
             "position": [-2, 0, 9],
             "piso": 4,
             "es_fuente": false,
             "pared": false,
             "ventana": false,
             "puerta": false,
-            "frecuencia": 1,
+            "frecuencia": 800,
             "vecinos": ["Biblioteca 2", "Oficina 6", "Aula 7", "Aula 8", "Pasillo 3"]
         },
         {
@@ -361,7 +361,7 @@
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 1000,
             "vecinos": ["Pasillo 4", "Aula 8"]
         },
         {
@@ -374,7 +374,7 @@
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 1000,
             "vecinos": ["Pasillo 4", "Aula 7", "Aula 6"]
         },
         {
@@ -387,20 +387,20 @@
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 300,
             "vecinos": ["Oficina 8", "Sala de Reuniones 4", "Aula 9", "Oficina 3"]
         },
         {
             "name": "Oficina 8",
             "tipo": "oficina",
-            "ruido": 50,
+            "ruido": 35,
             "position": [6, -2, 0],
             "piso": 1,
             "es_fuente": false,
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 350,
             "vecinos": ["Oficina 7", "Sala de Reuniones 4", "Aula 10"]
         },
         {
@@ -413,7 +413,7 @@
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 400,
             "vecinos": ["Oficina 7", "Oficina 8", "Aula 9", "Aula 10", "Pasillo 2", "Sala de Reuniones 5"]
         },
         {
@@ -426,7 +426,7 @@
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 1000,
             "vecinos": ["Oficina 7", "Sala de Reuniones 4"]
         },
         {
@@ -439,20 +439,20 @@
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 1000,
             "vecinos": ["Oficina 8", "Sala de Reuniones 4"]
         },
         {
             "name": "Laboratorio 4",
             "tipo": "laboratorio",
-            "ruido": 42,
+            "ruido": 55,
             "position": [6, 2, 3],
             "piso": 2,
             "es_fuente": false,
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 2000,
             "vecinos": ["Laboratorio 5", "Oficina 9", "Pasillo 2", "Sala de Reuniones 5"]
         },
         {
@@ -465,7 +465,7 @@
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 2000,
             "vecinos": ["Laboratorio 4", "Oficina 10", "Pasillo 2", "Sala de Reuniones 5"]
         },
         {
@@ -478,7 +478,7 @@
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 600,
             "vecinos": ["Laboratorio 4", "Pasillo 2", "Aula 11"]
         },
         {
@@ -491,7 +491,7 @@
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 650,
             "vecinos": ["Laboratorio 5", "Pasillo 2", "Aula 12"]
         },
         {
@@ -504,20 +504,20 @@
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 400,
             "vecinos": ["Laboratorio 4", "Laboratorio 5", "Pasillo 2"]
         },
         {
             "name": "Aula 11",
             "tipo": "aula",
-            "ruido": 51,
+            "ruido": 80,
             "position": [6, 4, 6],
             "piso": 3,
             "es_fuente": false,
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 1000,
             "vecinos": ["Aula 12", "Pasillo 3", "Aula 9"]
         },
         {
@@ -530,7 +530,7 @@
             "pared": true,
             "ventana": true,
             "puerta": true,
-            "frecuencia": 1,
+            "frecuencia": 1000,
             "vecinos": ["Aula 11", "Pasillo 3", "Aula 10"]
         }
     ]
