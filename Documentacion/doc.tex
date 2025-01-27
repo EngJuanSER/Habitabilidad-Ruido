@@ -6,6 +6,7 @@
 \usepackage{color}
 \usepackage{amsmath}
 \usepackage{hyperref}
+\usepackage{array}
 
 
 \definecolor{codegreen}{rgb}{0,0.6,0}
@@ -146,6 +147,130 @@ F_f = min(1.0, \frac{1000}{f})
 \end{equation}
 Donde $f$ es la frecuencia en Hz. Este factor modela la mayor atenuación de altas frecuencias.
 
+\section{Modelo de Clases}
+\subsection{Diagrama de Clases}
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{clases.png}
+    \caption{Diagrama de Clases del Sistema}
+    \label{fig:diagrama_clases}
+\end{figure}
+
+\subsection{Descripción de Clases}
+\begin{itemize}
+    \item \textbf{Nodo}
+    \begin{itemize}
+        \item Representa un espacio en el edificio
+        \item Gestiona propiedades físicas y acústicas
+        \item Implementa métodos de cálculo de ruido
+        \item Mantiene conexiones con otros nodos
+    \end{itemize}
+
+    \item \textbf{Sensor}
+    \begin{itemize}
+        \item Simula mediciones de ruido
+        \item Puede tener valores fijos o calculados
+    \end{itemize}
+
+    \item \textbf{MainWindow}
+    \begin{itemize}
+        \item Interfaz principal del sistema
+        \item Gestiona la visualización y optimización
+        \item Coordina la generación de reportes
+    \end{itemize}
+
+    \item \textbf{ReporteWindow}
+    \begin{itemize}
+        \item Visualiza resultados de análisis
+        \item Muestra recomendaciones específicas
+    \end{itemize}
+
+    \item \textbf{Grafo3DWindow}
+    \begin{itemize}
+        \item Genera visualizaciones 3D del edificio
+        \item Representa niveles de ruido mediante colores
+        \item Muestra conexiones entre espacios
+    \end{itemize}
+\end{itemize}
+
+
+\section{Interacción entre Componentes}
+\subsection{Flujo de Datos}
+\begin{itemize}
+    \item \textbf{Inicialización:}
+    \begin{enumerate}
+        \item Carga de configuración desde JSON
+        \item Creación de nodos y sensores
+        \item Establecimiento de conexiones
+    \end{enumerate}
+    
+    \item \textbf{Análisis Inicial:}
+    \begin{enumerate}
+        \item Medición de niveles de ruido
+        \item Generación de reporte inicial
+        \item Visualización 3D del estado
+    \end{enumerate}
+    
+    \item \textbf{Proceso de Optimización:}
+    \begin{enumerate}
+        \item Copia del estado inicial
+        \item Aplicación de recocido simulado
+        \item Generación de reporte de solución
+        \item Visualización del resultado optimizado
+    \end{enumerate}
+\end{itemize}
+
+\subsection{Gestión de Eventos}
+\begin{itemize}
+    \item \textbf{Eventos de Usuario:}
+    \begin{itemize}
+        \item Inicio de análisis
+        \item Solicitud de optimización
+        \item Interacción con visualizaciones 3D
+    \end{itemize}
+    
+    \item \textbf{Eventos del Sistema:}
+    \begin{itemize}
+        \item Actualización de estados
+        \item Generación de reportes
+        \item Recálculo de propagación de ruido
+    \end{itemize}
+\end{itemize}
+
+\section{Consideraciones de Implementación}
+\subsection{Manejo de Recursos}
+\begin{itemize}
+    \item \textbf{Gestión de Memoria:}
+    \begin{itemize}
+        \item Uso de copias profundas para preservar estados
+        \item Limpieza de recursos gráficos
+    \end{itemize}
+    
+    \item \textbf{Eficiencia:}
+    \begin{itemize}
+        \item Optimización de cálculos de propagación
+        \item Caché de resultados intermedios
+        \item Actualización selectiva de visualizaciones
+    \end{itemize}
+\end{itemize}
+
+\subsection{Extensibilidad}
+\begin{itemize}
+    \item \textbf{Puntos de Extensión:}
+    \begin{itemize}
+        \item Nuevos tipos de espacios
+        \item Algoritmos alternativos de optimización
+        \item Formatos adicionales de reporte
+    \end{itemize}
+    
+    \item \textbf{Modificación de Parámetros:}
+    \begin{itemize}
+        \item Límites de ruido configurables
+        \item Factores de atenuación ajustables
+        \item Criterios de optimización personalizables
+    \end{itemize}
+\end{itemize}
+
 \section{Algoritmo de Optimización}
 \subsection{Recocido Simulado}
 El algoritmo utiliza recocido simulado para optimizar la distribución de espacios. Este proceso imita el enfriamiento gradual de materiales para encontrar un estado óptimo.
@@ -204,23 +329,23 @@ El algoritmo utiliza recocido simulado para optimizar la distribución de espaci
 Define qué tipos de espacios pueden intercambiarse:
 
 \begin{center}
-\begin{tabular}{|l|l|p{7cm}|}
-\hline
-\textbf{Espacio} & \textbf{Compatible con} & \textbf{Justificación} \\
-\hline
-Biblioteca & Oficina, Reuniones & Espacios que requieren silencio relativo \\
-\hline
-Aula & Laboratorio, Auditorio & Espacios educativos con niveles similares \\
-\hline
-Cafetería & Reuniones & Espacios sociales con ruido moderado \\
-\hline
-Laboratorio & Aula, Oficina & Espacios de trabajo controlado \\
-\hline
-Oficina & Biblioteca, Reuniones & Ambientes de trabajo tranquilos \\
-\hline
-Auditorio & Aula & Espacios grandes con acústica similar \\
-\hline
-\end{tabular}
+    \begin{tabular}{|l|l|p{7cm}|}
+        \hline
+        \textbf{Espacio} & \textbf{Compatible con} & \textbf{Justificación} \\
+        \hline
+        Biblioteca & Oficina, Reuniones & Espacios que requieren silencio relativo \\
+        \hline
+        Aula & Laboratorio, Auditorio & Espacios educativos con niveles similares \\
+        \hline
+        Cafetería & Reuniones & Espacios sociales con ruido moderado \\
+        \hline
+        Laboratorio & Aula, Oficina & Espacios de trabajo controlado \\
+        \hline
+        Oficina & Biblioteca, Reuniones & Ambientes de trabajo tranquilos \\
+        \hline
+        Auditorio & Aula & Espacios grandes con acústica similar \\
+        \hline
+    \end{tabular}
 \end{center}
 
 \subsubsection{3. Proceso de Intercambio}
