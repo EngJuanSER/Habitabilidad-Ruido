@@ -7,7 +7,7 @@
 \usepackage{amsmath}
 \usepackage{hyperref}
 \usepackage{array}
-
+\usepackage{float}
 
 \definecolor{codegreen}{rgb}{0,0.6,0}
 \definecolor{codegray}{rgb}{0.5,0.5,0.5}
@@ -44,6 +44,7 @@
 \maketitle
 \tableofcontents
 
+\newpage
 \section{Introducción}
 \subsection{Descripción General del Sistema}
 Este sistema permite simular y optimizar la distribución de espacios en un edificio considerando la propagación del ruido. El programa:
@@ -149,7 +150,7 @@ Donde $f$ es la frecuencia en Hz. Este factor modela la mayor atenuación de alt
 
 \section{Modelo de Clases}
 \subsection{Diagrama de Clases}
-\begin{figure}[h]
+\begin{figure}[H]
     \centering
     \includegraphics[width=\textwidth]{clases.png}
     \caption{Diagrama de Clases del Sistema}
