@@ -425,11 +425,26 @@ Rojo & Excede & Supera límites permitidos \\
 \end{tabular}
 \end{center}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.48\textwidth]{grafoInicial.png}
+    \hfill
+    \includegraphics[width=0.48\textwidth]{grafoSolucion.png}
+    \caption{Comparativa: Gráfica Inicial (izquierda) y Gráfica Optimizada (derecha)}
+    \label{fig:graficos_inicial_solucion}
+\end{figure}
+
 \section{Sistema de Reportes}
 \subsection{Generación de Reportes}
 El sistema implementa dos tipos de reportes:
 
 \subsubsection{1. Reporte Inicial}
+
+\begin{itemize}
+    \item Genera un listado del estado de cada espacio
+    \item Muestra sugerencias rápidas de mitigación
+\end{itemize}
+
 \begin{lstlisting}[language=Python]
 def generar_reporte_inicial(self, grafo):
     datos_reporte = []
@@ -441,6 +456,13 @@ def generar_reporte_inicial(self, grafo):
         datos_reporte.append(
             (name, nivel, estado, recomendacion))
 \end{lstlisting}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{reporteInicial.png}
+    \caption{Pantallazo del Reporte Inicial}
+    \label{fig:reporte_inicial}
+\end{figure}
 
 \textbf{Recomendaciones Específicas por Tipo:}
 \begin{itemize}
@@ -469,6 +491,20 @@ def generar_reporte_inicial(self, grafo):
     \end{itemize}
 \end{itemize}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{reporteSolucion.png}
+    \caption{Pantallazo del Reporte Final con la Solución}
+    \label{fig:reporte_solucion}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{reporteSolucion2.png}
+    \caption{Pantallazo del Reporte Final con la Solución}
+    \label{fig:reporte_solucion}
+\end{figure}
+
 \section{Interfaz de Usuario}
 \subsection{Ventana Principal}
 \begin{itemize}
@@ -478,6 +514,15 @@ def generar_reporte_inicial(self, grafo):
         \item Solucionar Grafo
         \item Salir
     \end{enumerate}
+    \item \textbf{Vista de la Interfaz Principal:}
 \end{itemize}
 
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{principal.png}
+    \caption{Interfaz Principal del Sistema}
+    \label{fig:main_interface}
+\end{figure}
+
 \end{document}
+
